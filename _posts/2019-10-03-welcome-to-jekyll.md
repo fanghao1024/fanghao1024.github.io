@@ -75,35 +75,3 @@ Content in the first column | Content in the second column
 
 
 
-## Code in one line - Text
-
-`Featured`
-
-## Unlighted code
-
-``` javascript
-function fancyAlert(arg) {
-  if(arg) {
-    $.facebox({div:'#foo'})
-  }
-}
-```
-
-## Gist code
-
-{% gist 7ab295790e841929cf83c0b1676269af %}
-
-[jekyll-docs]: https://jekyllrb.com/docs/home
-[jekyll-gh]:   https://github.com/jekyll/jekyll
-[jekyll-talk]: https://talk.jekyllrb.com/
-
-<br>
-
-
-To use, see:[Jektify - Doc](https://jektify.github.io){:target="_blank"}
-
-{% jektify spotify/track/62qsgMnY4wg8nE5qjyOdWO/dark %}
-
-Goodbye! :wink:
-
-{% endpost #9D9D9D %}
