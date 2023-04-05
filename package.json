@@ -1,19 +1,39 @@
 {
-  "name": "Jekyll-Gulp-Sass-Autoprefixer-Imagemin-BrowserSync",
-  "version": "1.0.0",
-  "description": "A starter project for Jekyll",
-  "main": "index.js",
-  "repository": "https://github.com/artemsheludko/Jekyll-Gulp-Sass-Autoprefixer-Imagemin-BrowserSync",
-  "author": "Artem Sheludko",
+  "name": "typing-jekyll-template",
+  "version": "4.1.0",
+  "description": "Typing, is a template for Jekyll built especially for those who want to have a blog and pages quickly and lightly.",
+  "main": "index.md",
+  "scripts": {
+    "preinstall": "bundle install",
+    "postinstall": "gulp postinstall",
+    "build": "JEKYLL_ENV=production bundle exec jekyll build; gulp",
+    "serve": "bundle exec jekyll serve --drafts",
+    "page": "bundle exec rake page",
+    "post": "bundle exec rake post",
+    "clean": "gulp clean"
+  },
+  "repository": "git+https://github.com/williamcanin/typing-jekyll-template.git",
+  "keywords": [
+    "typing",
+    "template",
+    "jekyll"
+  ],
+  "author": "William Canin",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/williamcanin/typing-jekyll-template/issues"
+  },
+  "homepage": "https://github.com/williamcanin/typing-jekyll-template#readme",
   "dependencies": {
-    "browser-sync": "^2.18.8",
-    "child_process": "^1.0.2",
-    "gulp": "^3.9.1",
-    "gulp-autoprefixer": "^3.1.1",
-    "gulp-cache": "^0.4.6",
-    "gulp-imagemin": "^3.2.0",
-    "gulp-sass": "^3.1.0",
-    "imagemin-pngquant": "^5.0.0"
+    "bootstrap": "^4.4.1",
+    "jquery": "^3.4.1",
+    "popper.js": "^1.16.1"
+  },
+  "devDependencies": {
+    "del": "^5.1.0",
+    "gulp": "^4.0.2",
+    "gulp-htmlmin": "^5.0.1",
+    "gulp-imagemin": "^7.1.0",
+    "gulp-uglify": "^3.0.2"
   }
 }

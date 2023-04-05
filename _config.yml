@@ -1,56 +1,129 @@
-logo: # add logo name
-title: Bef - Enjoy Freedom
-description: > # this means to ignore newlines until "baseurl:"
-  Write an awesome description for your new site here. You can edit this
-  line in _config.yml. It will appear in your document head meta (for
-  Google search results) and in your feed.xml site description.
-permalink: ':title/'
-baseurl: "/bef" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+# the base hostname & protocol for your site, e.g. http://example.com
+url: "https://williamcanin.dev"
+# the subpath of your site, e.g. /blog/
+baseurl: "/typing-jekyll-template/"
 
-# Banner settings
-video: mountains.mp4 # add banner video. Add your video file to the folder video
-banner-title: # add banner title
-banner-desc: # add banner description
 
-# Author settings
-author-pic: face.jpg # your photo
-author-name: # your name
-about-author: # about author
-email: your-email@domain.com # your email
-phone: (496)-169-6557 # your pnone number
-website: https://dwayne.example.com # you website
+# Plugins Gemfile
+plugins:
+  - jekyll-sitemap
+  - jekyll-feed
 
-# Social link
-google_url:    # add url link
-twitter_url:   # add url link
-instagram_url: # add url link
-pinterest_url: # add url link
-dribbble_url:  # add url link
-facebook_url:  # add url link
 
-# Disqus
-discus_identifier: mr-brown # add your discus identifier.  Not your username.  To get this, register your forum here with a unique ID: https://disqus.com/admin/create/
+# Plugins de player - Jektify
+jektify:
+  enable: true
+  open: true
+  toggle:
+    enable: true
+  spotify:
+    user: # "you_user_spotify"
+    text: "See me no Spotify"
+  sass:
+    jekyll: true
+    other:
+      dir: "way/to/your/SASS"
+  title:
+    enable: false
+    text: "Music name"
+  description:
+    enable: false
+    text: |
+      Jekyll plugin to generate html snippets for embedding Spotify Musics.
+      To listen to the full song, open your Spotify and start these musics.
 
-# Newsletter
-mailchimp: # add your MailChimp form identifier. For example - blogenjoyfreedom.us16.list-manage.com/subscribe/post?u=cd56155d76ddeeb4c0bc4d080&amp;id=7a526cd13e
 
-# Tracker
-analytics:
+# Attention! Do not change the information below as it is
+# for development unless you know what you are doing.
 
-# Paginate
-paginate: 12
-paginate_path: /page:num/
+include: ['_pages']
 
-# Build settings
 markdown: kramdown
-plugins_dir:
-  - jekyll-paginate
-  - jekyll-sitemap
+highlighter: rouge
+kramdown:
+  syntax_highlighter: rouge
 
-gems:
-  - jekyll-paginate
-  - jekyll-sitemap
+permalink: /blog/:title/
 
-include: [_pages]
-exclude: ["node_modules", "gulpfile.js", "package.json", "yarn.lock"]
+layouts_dir: _src/_layouts
+includes_dir: _src/_includes
+plugins_dir: _src/_plugins
+
+destination: public
+port: 4000
+host: localhost
+
+sass:
+  load_paths:
+  - _src/_sass
+  - node_modules
+  - vendor/node_modules
+  style: compressed
+
+feed:
+  path: /blog/feed.xml
+
+compress_html:
+  clippings: all
+  comments: all
+  endings: []
+  profile: false
+
+tag_page_layout: tag
+tag_page_dir: blog/tags
+tag_permalink_style: pretty
+
+imager:
+  dir_posts: "assets/images/posts"
+
+# Readingtime and Datelang
+## supported languages:
+### ch_CH - Chinese | de_DE - Deutschland | en_US - English
+### es_ES - Spanish | fr_FR - French | it_IT - Italian
+### ja_JP - Japan | pt_PT - Portuguese | ru_RU - Russian
+reading_time:
+  locale: en_US
+
+datelang:
+  locale: en_US
+  reload: true
+
+pagination:
+  enabled: true
+  debug: false
+  collection: 'posts'
+  sort_field: 'date'
+  sort_reverse: true
+  per_page: 5
+  permalink: '/:num/'
+  locale: ''
+  title: ':title - Page :num'
+  limit: 0
+  extension: html
+  indexpage: 'index'
+
+gist:
+  noscript: false
+
+exclude:
+  - temp
+  - tmp
+  - .hidden
+  - yarn-error.log
+  - node_modules
+  - _src
+  - vendor
+  - cache
+  - Gemfile
+  - Gemfile.lock
+  - screenshot.png
+  - CHANGELOG
+  - COPYING
+  - package-lock.json
+  - package.json
+  - README.md
+  - README-ptbr.md
+  - gulpfile.js
+  - Rakefile
+  - yarn.lock
+  - Makefile

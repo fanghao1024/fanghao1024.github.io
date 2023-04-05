@@ -1,76 +1,84 @@
-var gulp = require('gulp');
-var sass = require('gulp-sass');
-var prefix = require('gulp-autoprefixer');
-var imagemin = require('gulp-imagemin');
-var pngquant = require('imagemin-pngquant');
-var cache = require('gulp-cache');
-var cp = require('child_process');
-var browserSync = require('browser-sync');
+// Script: gulpfile.js
+// by: William C. Canin
 
-var jekyll   = process.platform === 'win32' ? 'jekyll.bat' : 'jekyll';
+let gulp = require('gulp');
+let uglify = require('gulp-uglify');
+let imagemin = require('gulp-imagemin');
+let htmlmin = require('gulp-htmlmin');
+let del = require('del');
 
-// Build the Jekyll Site
-gulp.task('jekyll-build', function (done) {
-    return cp.spawn( jekyll , ['build'], {stdio: 'inherit'})
-        .on('close', done);
-});
 
-// Rebuild Jekyll and page reload
-gulp.task('jekyll-rebuild', ['jekyll-build'], function () {
-    browserSync.reload();
-});
+// function clean objects caches
+function clean_objects() {
+  var objs = [
+    'node_modules',
+    'cache',
+    'vendor',
+    'package-lock.json',
+    'Gemfile.lock'
+  ]
+  return del(objs)
+}
 
-// Wait for jekyll-build, then launch the Server
-gulp.task('browser-sync', ['sass', 'img', 'fonts', 'jekyll-build'], function() {
-    browserSync({
-        server: {
-            baseDir: '_site'
-        },
-        notify: false
-    });
-});
+// function postinstall for copy files statics
+function postinstall_statics() {
+  return gulp
+    .src(['node_modules/jquery/dist/jquery.min.js',
+      'node_modules/popper.js/dist/umd/popper.min.js',
+      'node_modules/popper.js/dist/umd/popper.min.js.map',
+      'node_modules/bootstrap/dist/js/bootstrap.min.js',
+      'node_modules/bootstrap/dist/js/bootstrap.min.js.map'])
+    .pipe(gulp.dest('assets/vendor/js'))
+}
 
-// Compile files
-gulp.task('sass', function () {
-    return gulp.src('assets/css/sass/main.sass')
-        .pipe(sass({
-            outputStyle: 'expanded',
-            onError: browserSync.notify
-        }))
-        .pipe(prefix(['last 15 versions', '> 1%', 'ie 8', 'ie 7'], { cascade: true }))
-        .pipe(gulp.dest('_site/assets/css'))
-        .pipe(browserSync.reload({stream:true}))
-        .pipe(gulp.dest('assets/css'));
-});
+// function minify javascripts
+function javascripts() {
+  return gulp
+    .src('public/assets/js/**/*.js')
+    .pipe(uglify())
+    .pipe(gulp.dest('public/assets/js'))
+}
 
-// Compression images
-gulp.task('img', function() {
-	return gulp.src('assets/img/**/*')
-		.pipe(cache(imagemin({
-			interlaced: true,
-			progressive: true,
-			svgoPlugins: [{removeViewBox: false}],
-			use: [pngquant()]
-		})))
-    .pipe(gulp.dest('_site/assets/img'))
-    .pipe(browserSync.reload({stream:true}));
-});
+// function minify html
+function html_minify() {
+  return gulp
+    .src('public/**/*.html')
+    .pipe(htmlmin({ collapseWhitespace: true, removeComments: true }))
+    .pipe(gulp.dest('public'))
+}
 
-// Fonts
-gulp.task('fonts', function() {
-    return gulp.src('assets/fonts/**/*')
-        .pipe(gulp.dest('_site/assets/fonts'))
-        .pipe(browserSync.reload({stream:true}));
-});
+// function optimize images
+function images_minify() {
+  return gulp
+    .src('public/assets/images/**/*')
+    .pipe(
+      imagemin([
+        imagemin.gifsicle({ interlaced: true }),
+        imagemin.mozjpeg({ progressive: true }),
+        imagemin.optipng({ optimizationLevel: 5 }),
+        imagemin.svgo({
+          plugins: [
+            {
+              removeViewBox: true,
+              collapseGroups: false
+            }
+          ]
+        })
+      ])
+    )
+    .pipe(gulp.dest('public/assets/images'));
+}
 
-// Watch scss, html, img files
-gulp.task('watch', function () {
-    gulp.watch('assets/css/sass/*.*', ['sass']);
-    gulp.watch('assets/js/**/*.js', ['jekyll-rebuild']);
-    gulp.watch('assets/img/**/*', ['img']);
-    gulp.watch('assets/fonts/**/*', ['fonts']);    
-    gulp.watch(['*.html', '_layouts/*.html', '_includes/*.html', '_pages/*.html', '_posts/*'], ['jekyll-rebuild']);
-});
+// task build
+const build = gulp.series(gulp.parallel(html_minify,
+                                        javascripts,
+                                        images_minify));
 
-//  Default task
-gulp.task('default', ['browser-sync', 'watch']);
+// export tasks
+exports.postinstall = postinstall_statics;
+exports.images = images_minify;
+exports.js = javascripts;
+exports.html = html_minify;
+exports.build = build;
+exports.clean = clean_objects;
+exports.default = build;
