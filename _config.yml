@@ -14,7 +14,7 @@ future: true
 # SNS settings
 RSS: false
 weibo_username: 1922286492
-zhihu_username: wan-yi-32-56
+#zhihu_username: wan-yi-32-56
 github_username: fanghao1024
 #twitter_username: huxpro
 facebook_username:  chinafanghao
