@@ -1,129 +1,102 @@
-# the base hostname & protocol for your site, e.g. http://example.com
-url: "https://williamcanin.dev"
-# the subpath of your site, e.g. /blog/
-baseurl: "/typing-jekyll-template/"
+# Site settings
+title: Hux Blog
+SEOTitle: 黄玄的博客 | Hux Blog
+header-img: img/home-bg.jpg
+email: huxpro@gmail.com
+description: "这里是 @Hux黄玄 的个人博客，与你一起发现更大的世界 | 要做一个有 swag 的程序员"
+keyword: "黄玄, Hux黄玄, Hux, 鬼栈, huxpro, @huxpro, 黄玄的博客, Hux Blog, 博客, 个人网站, 互联网, Web, JavaScript, React, React Native, 前端, 设计"
+url: "https://huangxuan.me" # your host, for absolute URL
+baseurl: "" # for example, '/blog' if your blog hosted on 'host/blog'
 
+# Publish posts or collection documents with a future date.
+future: true
 
-# Plugins Gemfile
-plugins:
-  - jekyll-sitemap
-  - jekyll-feed
+# SNS settings
+RSS: false
+weibo_username: huxpro
+zhihu_username: huxpro
+github_username: huxpro
+twitter_username: huxpro
+#facebook_username:  huxpro
+#linkedin_username:  firstname-lastname-idxxxx
 
-
-# Plugins de player - Jektify
-jektify:
-  enable: true
-  open: true
-  toggle:
-    enable: true
-  spotify:
-    user: # "you_user_spotify"
-    text: "See me no Spotify"
-  sass:
-    jekyll: true
-    other:
-      dir: "way/to/your/SASS"
-  title:
-    enable: false
-    text: "Music name"
-  description:
-    enable: false
-    text: |
-      Jekyll plugin to generate html snippets for embedding Spotify Musics.
-      To listen to the full song, open your Spotify and start these musics.
-
-
-# Attention! Do not change the information below as it is
-# for development unless you know what you are doing.
-
-include: ['_pages']
-
-markdown: kramdown
+# Build settings
+# from 2016, 'pygments' is unsupported on GitHub Pages. Use 'rouge' for highlighting instead.
 highlighter: rouge
-kramdown:
-  syntax_highlighter: rouge
-
-permalink: /blog/:title/
-
-layouts_dir: _src/_layouts
-includes_dir: _src/_includes
-plugins_dir: _src/_plugins
-
-destination: public
-port: 4000
-host: localhost
-
-sass:
-  load_paths:
-  - _src/_sass
-  - node_modules
-  - vendor/node_modules
-  style: compressed
-
-feed:
-  path: /blog/feed.xml
-
-compress_html:
-  clippings: all
-  comments: all
-  endings: []
-  profile: false
-
-tag_page_layout: tag
-tag_page_dir: blog/tags
-tag_permalink_style: pretty
-
-imager:
-  dir_posts: "assets/images/posts"
-
-# Readingtime and Datelang
-## supported languages:
-### ch_CH - Chinese | de_DE - Deutschland | en_US - English
-### es_ES - Spanish | fr_FR - French | it_IT - Italian
-### ja_JP - Japan | pt_PT - Portuguese | ru_RU - Russian
-reading_time:
-  locale: en_US
-
-datelang:
-  locale: en_US
-  reload: true
-
-pagination:
-  enabled: true
-  debug: false
-  collection: 'posts'
-  sort_field: 'date'
-  sort_reverse: true
-  per_page: 5
-  permalink: '/:num/'
-  locale: ''
-  title: ':title - Page :num'
-  limit: 0
-  extension: html
-  indexpage: 'index'
-
-gist:
-  noscript: false
-
+permalink: pretty
+paginate: 10
 exclude:
-  - temp
-  - tmp
-  - .hidden
-  - yarn-error.log
-  - node_modules
-  - _src
-  - vendor
-  - cache
-  - Gemfile
-  - Gemfile.lock
-  - screenshot.png
-  - CHANGELOG
-  - COPYING
-  - package-lock.json
-  - package.json
-  - README.md
-  - README-ptbr.md
-  - gulpfile.js
-  - Rakefile
-  - yarn.lock
-  - Makefile
+  [
+    "less",
+    "node_modules",
+    "Gruntfile.js",
+    "package.json",
+    "README.md",
+    "README.zh.md",
+  ]
+anchorjs: true # if you want to customize anchor. check out line:181 of `post.html`
+# If you have timezone issue (e.g. #68) in China, uncomment to use this:
+#timezone: CN
+
+# Gems
+# from PR#40, to support local preview for Jekyll 3.0
+# make sure you have this gem installed
+# `$ gem install jekyll-paginate`
+plugins: [jekyll-paginate]
+
+# Markdown settings
+# replace redcarpet to kramdown,
+# although redcarpet can auto highlight code, the lack of header-id make the catalog impossible, so I switch to kramdown
+# document: http://jekyllrb.com/docs/configuration/#kramdown
+markdown: kramdown
+kramdown:
+  input: GFM # use Github Flavored Markdown !important
+  syntax_highlighter_opts:
+    span:
+      line_numbers: false
+    block:
+      line_numbers: true
+      start_line: 1
+
+# Disqus settings
+disqus_username: hux
+
+# Netease settings
+netease_comment: false
+
+# Analytics settings
+# Baidu Analytics
+# ba_track_id: [your track id]
+
+# Google Analytics
+ga_track_id: "UA-49627206-1" # Format: UA-xxxxxx-xx
+ga_domain: huangxuan.me
+
+# Sidebar settings
+sidebar: true # whether or not using Sidebar.
+sidebar-about-description: "要做一个有 swag 的程序员 <br> React Team @ Meta"
+sidebar-avatar: https://github.com/Huxpro.png # use absolute URL, seeing it's used in both `/` and `/about/`
+
+# Featured Tags
+featured-tags: true # whether or not using Feature-Tags
+featured-condition-size: 1 # A tag will be featured if the size of it is more than this condition value
+
+# Progressive Web Apps
+chrome-tab-theme-color: "#000000"
+service-worker: true
+
+# MathJax rendering for layout:page (e.g. post preview)
+page-mathjax: false
+
+# Friends
+friends:
+  [
+    { title: "乱序（Midare）", href: "http://mida.re/" },
+    { title: "Ebn Zhang", href: "https://ebnbin.dev/" },
+    { title: "Kun Qian", href: "http://kunq.me" },
+    { title: "Sherry Woo", href: "https://sherrywoo.me/" },
+    { title: "SmdCn", href: "http://blog.smdcn.net" },
+    { title: "JiyinYiyong", href: "http://tiye.me/" },
+    { title: "DHong Say", href: "http://dhong.co" },
+    { title: "尹峰以为", href: "http://ingf.github.io/" },
+  ]

@@ -1,76 +1,54 @@
-# File name: Rakefile
-# Stript type: Rake
-# Country/State: Brazil/SP
-# Author : William C. Canin
-# Page author: http://williamcanin.github.io
-# Description: Task creation file for the 'manager.rb' file.
+require "rubygems"
+require 'rake'
+require 'yaml'
+require 'time'
 
-require "./_src/lib/rb/manager.rb"
+SOURCE = "."
+CONFIG = {
+  'version' => "12.3.2",
+  'themes' => File.join(SOURCE, "_includes", "themes"),
+  'layouts' => File.join(SOURCE, "_layouts"),
+  'posts' => File.join(SOURCE, "_posts"),
+  'post_ext' => "md",
+  'theme_package_version' => "0.1.0"
+}
 
-# Instance class
-manager = Manager.new
-
-# Task create header post
-# Example: rake post
-desc "Create new post"
+# Usage: rake post title="A Title" subtitle="A sub title"
+desc "Begin a new post in #{CONFIG['posts']}"
 task :post do
-  manager.post_create
-end
-
-# Task create header page
-# Example: rake page
-desc "Create new page"
-task :page do
-  manager.page_create
-end
-
-# # DEPRECATED!
-# # Task to set up after installation
-# # Example: rake postinstall
-# desc "Setup after installation"
-# task :postinstall do
-#   manager.postinstall
-# end
-
-# # UNDER DEVELOPMENT
-# # Task to set up before installation
-# # Example: rake preinstall
-# desc "Setup before installation"
-# task :preinstall do
-#   manager.preinstall
-# end
-
-# UNDER DEVELOPMENT
-## Task to deploy the compiled project
-## Example: rake deploy:public
-# desc "Deploy the compiled project"
-# namespace :deploy do
-#   task :public do
-#     manager.deploy('public', 'public')
-#   end
-# end
-
-# UNDER DEVELOPMENT
-## Task to deploy the project source.
-## Example: rake deploy:source
-# desc "Deploy the project source"
-# namespace :deploy do
-#   task :source do
-#     manager.deploy('.', 'src')
-#   end
-# end
-
-# Other outputs
-def get_stdin(message)
-  print message
-  STDIN.gets.chomp
-end
-
-def ask(message, valid_options)
-  if valid_options
-    answer = get_stdin("#{message} #{valid_options.to_s.gsub(/"/, '').gsub(/, /,'/')} ") while !valid_options.include?(answer)
-  else
-    answer = get_stdin(message)
+  abort("rake aborted: '#{CONFIG['posts']}' directory not found.") unless FileTest.directory?(CONFIG['posts'])
+  title = ENV["title"] || "new-post"
+  subtitle = ENV["subtitle"] || "This is a subtitle"
+  slug = title.downcase.strip.gsub(' ', '-').gsub(/[^\w-]/, '')
+  begin
+    date = (ENV['date'] ? Time.parse(ENV['date']) : Time.now).strftime('%Y-%m-%d')
+  rescue Exception => e
+    puts "Error - date format must be YYYY-MM-DD, please check you typed it correctly!"
+    exit -1
   end
-  answer
-end
+  filename = File.join(CONFIG['posts'], "#{date}-#{slug}.#{CONFIG['post_ext']}")
+  if File.exist?(filename)
+    abort("rake aborted!") if ask("#{filename} already exists. Do you want to overwrite?", ['y', 'n']) == 'n'
+  end
+
+  puts "Creating new post: #{filename}"
+  open(filename, 'w') do |post|
+    post.puts "---"
+    post.puts "layout: post"
+    post.puts "title: \"#{title.gsub(/-/,' ')}\""
+    post.puts "subtitle: \"#{subtitle.gsub(/-/,' ')}\""
+    post.puts "date: #{date}"
+    post.puts "author: \"Hux\""
+    post.puts "header-img: \"img/post-bg-2015.jpg\""
+    post.puts "tags: []"
+    post.puts "---"
+  end
+end # task :post
+
+desc "Launch preview environment"
+task :preview do
+  system "jekyll --auto --server"
+end # task :preview
+
+#Load custom rake scripts
+Dir['_rake/*.rake'].each { |r| load r }
