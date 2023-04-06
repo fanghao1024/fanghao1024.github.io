@@ -73,7 +73,7 @@ netease_comment: false
 
 # Google Analytics
 ga_track_id: "G-EPJ2LL3TF5" # Format: UA-xxxxxx-xx
-ga_domain: 4857389358
+ga_domain: auto
 
 # Sidebar settings
 sidebar: true # whether or not using Sidebar.
