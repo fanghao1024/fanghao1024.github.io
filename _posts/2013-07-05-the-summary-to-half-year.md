@@ -2,6 +2,7 @@
 layout: post
 title: "躲在篱笆里的人"
 description: "2013年半年度总结"
+author:     "Hao"
 category: true
 tagline: "总结过去，才能更好地发展未来"
 tags: [future , thinking]
