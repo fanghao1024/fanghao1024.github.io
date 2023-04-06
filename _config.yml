@@ -7,7 +7,7 @@ header2-img: img/IMG_0647.JPG
 email: fanghao1024@outlook.com
 description: "Hello everyone, my name is Fang Hao（ 方 浩 ）. This is my personal blog where I share things that interest me and welcome everyone to join in and exchange ideas."
 keyword: "RL , DL , ML , python , algorithm, trading"
-url: "https://fanghao.work" # your host, for absolute URL
+url: "https://fanghao1024.github.io" # your host, for absolute URL
 baseurl: "" # for example, '/blog' if your blog hosted on 'host/blog'
 
 # Publish posts or collection documents with a future date.
@@ -62,7 +62,7 @@ kramdown:
       start_line: 1
 
 # Disqus settings
-disqus_username: hux
+disqus_username: hao
 
 # Netease settings
 netease_comment: false
