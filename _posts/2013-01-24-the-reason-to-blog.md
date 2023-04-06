@@ -2,7 +2,8 @@
 layout: post
 title: "关于为什么要开独立博客写文章呢"
 description: "本部落格第一篇文章，那就说点文章和博客的事情吧"
-category:
+author:     "Hao"
+category: false
 tagline: " Come on, Baby!"
 tags: [life , thinking]
 ---
