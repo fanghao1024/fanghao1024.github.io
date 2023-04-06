@@ -2,7 +2,8 @@
 layout: post
 title: "这一周的实习面试总结"
 description: "这一周参加了三个公司的面试，有不少感触，把经历和感想写一下"
-category:
+author:     "Hao"
+category: false
 tagline: " 浮华过去了，回归平静"
 tags: [interview , thinking]
 ---
