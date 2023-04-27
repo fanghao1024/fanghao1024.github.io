@@ -1,0 +1,520 @@
+{toc}
+
+
+h1(#一算法背景). 一、算法背景
+
+大部分强化学习算法*很难保证单调收敛*，这使得即使参数空间中看似很小的差异也会在性能上产生非常大的差异结果，因此一个错误的步骤可能会导致策略性能崩溃。而TRPO通过采取*尽可能大的步骤提高性能来更新策略*，利用KL散度对新旧策略接近程度进行约束，避免了这种情况。
+
+
+
+
+
+置信域策略优化算法（Trust Region Policy Optimization,TRPO）是一种基于策略的方法，即先对策略进行参数化，并设计衡量策略质量的指标或目标函数，然后通过梯度上升法来最大化这指标，让策略逼近局部最优。一般的策略梯度算法在沿着策略梯度更新参数时，可能因为步长太大，使策略变差。TRPO在更新参数的时候会先试探权重参数下一步要更新的位置是否失控，如果失控则调整步长，否则视该区域为置信域（Trust Region）,在该区域内能保障策略提升的单调性。
+
+h1(#二定义). 二、定义
+
+h2(#策略评估policy-evaluation). 策略评估(policy evaluation)
+
+策略<span class="math">\pi</span>下产生的一系列状态&#45;动作对的预期累计回报：
+
+<span class="math">\eta(\pi)=E_{s_0,a_0,s_1,a_1,\cdots}[\sum_{t=0}^{\infty}\gamma^tr(s_t)]\\ 
+其中，s_0为环境的初始状态，与策略无关，由环境自动生成，即s_0 \thicksim \rho(s_0)；\\
+a_t\thicksim\pi(\cdot\mid s_t);s_{t+1} \thicksim P(s_{t+1}\mid s_t,a_t);\tag{1}</span>
+h2(#状态值函数state-value-function). 状态值函数(state value function)
+
+<span class="math">V_{\pi}(s_t)=E_{a_t,s_{t+1},\cdots}\lbrack \sum_{l=0}^{\infty}\gamma^lr(s_{t+l}) \rbrack \tag{2}</span>
+h2(#状态-动作值函数state-action-value-function). 状态&#45;动作值函数(state&#45;action value function)
+
+<span class="math">Q_{\pi}(s_t,a_t)=E_{s_{t+1},a_{t+1},\cdots}[\sum_{l=0}^{\infty}\gamma^lr(s_{t+l})] \tag{3}</span>
+h2(#动作优势函数advantage-action-function). 动作优势函数(advantage action function)
+
+即状态s下使用动作a产生的回报与状态s时所有动作产生平均回报的差，衡量某个特定动作相对平均收益的优势
+
+<span class="math">A_{\pi}(s,a)=Q_{\pi}(s,a)-V_{\pi}(s) \tag{4}</span>
+h1(#三将新策略的回报表示为旧策略的回报其他值). 三、将新策略的回报表示为旧策略的回报&#43;其他值
+
+<span class="math">&amp; \eta(\widetilde{\pi})=\eta(\pi)+E_{s_0,a_0,\cdots \thicksim\widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^tA_{\pi}(s_t,a_t)]\\
+&amp; 其中,s_0 \thicksim \rho(s_0),a_t\thicksim\pi(\cdot\mid s_t),s_{t+1} \thicksim P(s_{t+1}\mid s_t,a_t) \tag{5}</span>
+<blockquote>
+
+证明：
+
+<span class="math">\begin{aligned}
+&amp; E_{\tau \mid \widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^{t}A_{\pi}(s_t,a_t)] \\
+&amp;=E_{\tau \mid \widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^{t}[Q_{\pi}(s_t,a_t)-V_{\pi}(s_t)]]\\
+&amp;=E_{\tau \mid \widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^{t}(r(s_t)+\gamma V_\pi(s_{t+1})-V_\pi (s_t))]\\
+&amp;=E_{\tau \mid \widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^{t}r(s_t)]+E_{\tau \mid \widetilde{\pi}}[\sum_{t=0}^{\infty}\gamma^{t}(\gamma V_\pi(s_{t+1})-V_\pi (s_t))]\\
+&amp;=\eta(\widetilde{\pi})+E_{\tau \mid \widetilde{\pi}}[-V_{\widetilde{\pi}}(s_0)+\gamma V_{\widetilde{\pi}}(s_1)-\gamma V_{\widetilde{\pi}}(s_1)+\gamma^2 V_{\widetilde{\pi}}(s_2)+\cdots]\\
+&amp;=\eta(\widetilde{\pi})+(-E_{s_0}[V_{\pi}(s_0)])\longrightarrow 此处s_0\thicksim \pi 等价于 s_0 \thicksim \widetilde{\pi}\\
+&amp;=\eta(\widetilde{\pi})-\eta(\pi)\\
+其中：\\
+&amp; E_{s_0}[V_{\pi}(s_0)]\\
+&amp;=E_{s_0}[E_{a_0,s_1,\cdots}[\sum_{t=0}^{\infty}\gamma^t r(s_{0+t})]]\\
+&amp;=E_{a_0,s_1,\cdots}[\sum_{t=0}^{\infty}\gamma^t r(s_{0+t})]\\
+&amp;=\eta(\pi)\\
+证毕
+\end{aligned}</span>
+</blockquote>
+
+定义：
+
+<span class="math">\rho_{\pi}(s)=P(s_0=s)+\gamma P(s_1=s)+\gamma^2 P(s_2=s)+\cdots \tag{6}</span>
+即每个状态的（未标准化的）折扣访问频率（Discounted Visitation Frequencies），其将时间步上的累加，转为了状态上的累加。当<span class="math">\gamma</span>为1时，可以将其理解为状态的占用度量。
+
+将该定义带入式（5），得到：
+
+<span class="math">\eta(\widetilde{\pi})=\eta(\pi)+\sum_{s}\rho_{\widetilde{\pi}}(s)\sum_{a}\widetilde{\pi}(a|s)A_{\pi}(s,a) \tag{7}</span>
+<blockquote>
+
+证明：
+
+<span class="math">\begin{aligned}
+\eta(\widetilde{\pi})&amp;=\eta(\pi)+\sum_{t=0}^{\infty}\sum_{s}P(s_t=s|\widetilde{\pi})\sum_{a}[\widetilde{\pi}(a|s) \cdot \gamma ^t \cdot A_{\pi}(s,a)]\\
+&amp;=\eta(\pi)+\sum_{s}\sum_{t=0}^{\infty}\gamma ^tP(s_t=s|\widetilde{\pi})\sum_{a}[\widetilde{\pi}(a|s) \cdot A_{\pi}(s,a)]\\
+&amp;=\eta(\pi)+\sum_{s}\rho_{\widetilde{\pi}}(s) \cdot \sum_a\widetilde{\pi}(a|s) \cdot A_{\pi}(s,a)
+\end{aligned}</span>
+</blockquote>
+
+h1(#四对
+ηπ
+近似获得替代回报函数). 四、对<span class="math">\eta(\widetilde{\pi})</span>近似，获得替代回报函数
+
+如果先大量采样得到<span class="math">\rho_{\widetilde{\pi}}(s)</span>，再验证式（7）右边第二项<span class="math">\ge</span>0，计算量太大，需要对不同的<span class="math">\widetilde{\pi}</span>都进行大量采样,也就是盲目地选择一个策略，然后大量采样，看看式（7）第二项是否大于0，这种方法显然是不现实的，而强化学习的目标就是减少采样次数。
+
+考虑这样一种情况，将原回报函数中的<span class="math">\rho_{\widetilde{\pi}}(s)</span>替换为<span class="math">\rho_{\pi}(s)</span>，定义替换函数：
+
+<span class="math">L_{\pi}(\widetilde{\pi})=\eta(\pi)+\sum_{s}\rho_{\pi}(s)\cdot \sum_a\widetilde{\pi}(a|s)  A_{\pi}(s,a) \tag{8}</span>
+当<span class="math">\eta(\widetilde{\pi})</span>和<span class="math">L_{\pi}(\widetilde{\pi})</span>相差很小时，两者可以相互替代，将其均看成<span class="math">\widetilde{\pi}</span>的函数，<span class="math">\widetilde{\pi}</span>和<span class="math">\pi</span>均为<span class="math">\theta</span>的函数，当<span class="math">\eta(\widetilde{\pi})</span>和<span class="math">L_{\pi}(\widetilde{\pi})</span>在<span class="math">\pi_{\theta_{old}}</span>处一阶近似时，即：
+
+<span class="math">\begin{array}{l}
+L_{\pi_{\theta \text { old }}}\left(\pi_{\theta_{\text {old }}}\right)=\eta\left(\pi_{\theta_{\text {old }}}\right) \tag{9} \\
+\left.\nabla_{\theta} L_{\pi_{\theta_{\text {old }}}}\left(\pi_{\theta}\right)\right|_{\theta=\theta_{\text {old }}}=\left.\nabla_{\theta} \eta\left(\pi_{\theta}\right)\right|_{\theta=\theta_{\text {old }}}
+\end{array}</span>
+<blockquote>
+
+证明：
+
+1）对于式(9)的第一个式子：
+
+ 式（7）中的<span class="math">\pi</span>和<span class="math">\pi_{old}</span>是一样的，都是指的原来的策略，故：
+
+<span class="math">\eta(\pi_{old})=\eta(\pi_{old})+\sum_{s}\rho_{\pi_{old}}(s) \sum_a \pi_{old}(a|s) A_{\pi_{old}}(s,a)</span>
+ 其中,
+
+<span class="math">\sum_a \pi_{old}(a|s)A_{\pi_{old}}(s,a)=0</span>
+ 上式等号右边第二项为0，故式（9）第一个式子得证。
+
+2）对于式（9）的第二个式子，分别让式（7）和（8）对<span class="math">\theta</span>求偏导，得：
+
+</blockquote>
+
+<blockquote>
+
+<span class="math">\begin{aligned}
+\nabla_{\theta}\eta(\widetilde{\pi})|_{\theta=\theta_{\text {old }}}&amp;=\nabla_{\theta} \eta(\pi_{\pi_{\theta_{old}}})+\sum_s \nabla_{\theta}\rho_{\widetilde{\pi}}(s)\sum_{a}\widetilde{\pi}(a|s)A_{\pi}(s,a)+\sum_{s}\rho_{\widetilde{\pi}}(s)\sum_{a}\nabla\widetilde{\pi}(a|s)A_{\pi}(s,a)  \\
+&amp;(1)第一项\eta(\pi_{\theta_{old}})是常数，故\nabla\eta(\pi_{\theta_{old}})=0\\
+&amp;(2)当\widetilde{\pi}=\pi_{old}时，即\widetilde{\pi}的参数\theta等于\pi_{old}的参数\theta_{old}时，\sum_{a}\widetilde{\pi}(a|s)A_{\pi}(s,a)=0，故有\\
+&amp;=\sum_{s}\rho_{\widetilde{\pi}}(s)\sum_{a}\nabla\widetilde{\pi}(a|s)A_{\pi}(s,a)\\
+&amp;代入\theta=\theta_{old}，即\widetilde{\pi}=\pi_{old}\\
+&amp;=\sum_{s}\rho_{\pi_{\theta_{old}}}(s)\sum_{a}\nabla \widetilde{\pi}(a|s)A_{\pi_{\theta_{old}}}(s,a)\\
+\end{aligned}</span>
+<span class="math">\nabla_{\theta}L_{\pi_{\theta_{old}}}(\widetilde{\pi})|_{\theta=\theta_{\text {old }}}=0+\sum_{s}\rho_{\pi_{\theta_{old}}}(s)\sum_{a}\nabla \widetilde{\pi}(a|s)A_{\pi_{\theta_{old}}}(s,a) \longrightarrow 原式第一项\eta(\pi_{\theta_{old}})是常数，故\nabla\eta(\pi_{\theta_{old}})=0</span>
+证毕。
+
+</blockquote>
+
+当<span class="math">\eta(\widetilde{\pi})</span>和<span class="math">L_{\pi}(\widetilde{\pi})</span>在<span class="math">\pi_{\theta_{old}}</span>处一阶近似时，则在<span class="math">\pi_{old}</span>附近，改善L的策略也能改善原汇报函数<span class="math">\eta</span>，只要步长控制在<span class="math">\pi_{old}</span>合理的邻域内。
+
+h1(#五控制
+π
+和
+π
+之间的散度小于
+α
+就能保证回报单调增长). 五、控制<span class="math">\pi</span>和<span class="math">\widetilde{\pi}</span>之间的散度小于<span class="math">\alpha</span>，就能保证回报单调增长
+
+如果要使用L回报函数替代<span class="math">\eta</span>回报函数，则<span class="math">\pi</span>和<span class="math">\widetilde{\pi}</span>不能差太多，否则一阶近似邻域将非常小，导致极其小的步长，会使得训练变慢。
+
+Kakade和Langford在2002年提出过一个保守策略迭代更新方案，可以为<span class="math">\eta</span>更新提供明确的下界，即对于策略改进采用以下混合方式时：
+
+<span class="math">\pi_{new}(a|s)=(1-\alpha)\pi_{old}(a|s)+\alpha \pi'(a|s) \tag{10}</span>
+其中，<span class="math">\pi'=arg \min_{\pi'}L_{\pi_{old}}(\pi')</span>，有
+
+<span class="math">\eta(\pi_{new})\ge L_{\pi_{old}}-\frac{2\epsilon \gamma}{(1-\gamma)^2}\alpha^2,\epsilon=\max_{s}|E_{a \thicksim \widetilde{\pi}(a|s) }[A_{\pi}(s,a)]| \tag{11}</span>
+<blockquote>
+
+证明：
+
+首先定义<span class="math">\overline{A}(s)</span>：
+
+<span class="math">\overline{A}(s)=E_{a \thicksim \widetilde{\pi}(a|s) }[A_{\pi}(s,a)]</span>
+<span class="math">\overline{A}(s)</span>表示在状态s时采用策略<span class="math">\widetilde{\pi}</span>相对于之前策略的改进。
+
+用<span class="math">\overline{A}(s)</span>改写式(7)和(8)，得到：
+
+<span class="math">\begin{array}{l}
+\eta(\tilde{\pi})=\eta(\pi)+E_{\tau \sim \tilde{\pi}}\left[\sum_{t=0}^{\infty} \gamma^{t} \bar{A}\left(s_{t}\right)\right] \\
+L_{\pi}(\tilde{\pi})=\eta(\pi)+E_{\tau \sim \pi}\left[\sum_{t=0}^{\infty} \gamma^{t} \bar{A}\left(s_{t}\right)\right]
+\end{array}</span>
+由于策略按照 <span class="math">\pi_{new}(a|s)=(1-\alpha)\pi_{old}(a|s)+\alpha \pi^`(a|s)的模式混合，假设新策略\widetilde{\pi}是由\pi_{old}和\pi^`</span>各自按照一定权重进行混合的，策略可以表示为策略对<span class="math">(\pi,\widetilde{\pi})</span>，由策略对产生的动作对<span class="math">(a,\widetilde{a})</span>。
+
+从这种视角看，产生动作<span class="math">\widetilde{a}</span>的概率为<span class="math">\alpha</span>,因为不同策略也可能产生相同的动作，所以在改进的策略<span class="math">\pi_{new}</span>中，产生和原策略的动作（即a）不同的概率最多为<span class="math">\alpha</span>，即<span class="math">P(a\neq \widetilde{a}|s)\le\alpha</span>。
+
+于是有：
+
+<span class="math">\begin{aligned}
+\overline{A}&amp;=E_{\widetilde{a} \sim \widetilde{\pi}}[A_{\pi}(s,\widetilde{a})] \longrightarrow 定义\\
+&amp;=E_{(a,\widetilde{a}) \sim (\pi,\widetilde{\pi})}[A_{\pi}(s,\widetilde{a})-A_{\pi}(s,a)] \longrightarrow E_{a \sim \pi}A_{\pi}(s,a)=0，所以这个等号就是减去了0\\
+&amp;=P(a \ne \widetilde{a}|s)E_{(a,\widetilde{a}) \sim (\pi,\widetilde{\pi})|a \ne \widetilde{a}}[A_{\pi}(s,\widetilde{a})-A_{\pi}(s,a)]\longrightarrow 当a=\widetilde{a}时,A_{\pi}(s,\widetilde{a})-A_{\pi}(s,a)=0\\
+\end{aligned}</span>
+于是有：
+
+<span class="math">|\overline{A}|\le P(a \ne \widetilde{a}|s)(|E_{\widetilde{a} \sim \widetilde{\pi}}[A_{\pi}(s,\widetilde{a})|+|E_{a \sim \pi}A_{\pi}(s,a)]|)\le \alpha \cdot 2 \cdot \max_{s,a}|A_{\pi}(s,a)| \tag{12}</span>
+用<span class="math">n_t</span>表示在时刻t之前策略<span class="math">\pi</span>和<span class="math">\widetilde{\pi}</span>产生的不同动作的数量，有：
+
+<span class="math">E_{s_t\sim\widetilde{\pi}}\left[\overline{A}\left(s_i\right)\right]=P\left(n_t=0\right)E_{s_t\sim\widetilde{\pi}| n_t=0}\left[\overline{A}\left(s_t\right)\right]+P\left(n_t&gt;0\right)E_{s_t\sim\widetilde{\pi}| n_t&gt;0}\left[\overline{A}\left(s_t\right)\right] \tag{13}</span>
+和
+
+<span class="math">E_{s_t\sim \pi}\left[\overline{A}\left(s_i\right)\right]=P\left(n_t=0\right)E_{s_t\sim \pi | n_t=0}\left[\overline{A}\left(s_t\right)\right]+P\left(n_t&gt;0\right)E_{s_t\sim \pi | n_t&gt;0}\left[\overline{A}\left(s_t\right)\right] \tag{14}</span>
+<span class="math">n_t=0</span>时，策略<span class="math">\pi</span>和<span class="math">\widetilde{\pi}</span>动作相同，将到达相同的状态，则有：
+
+<span class="math">E_{s_t\sim\widetilde{\pi}| n_t=0}\left[\overline{A}\left(s_t\right)\right]=E_{s_t\sim \pi | n_t=0}\left[\overline{A}\left(s_t\right)\right]</span>
+则式（13）减去式（14）有：
+
+<span class="math">\begin{aligned}
+|E_{s_t\sim\widetilde{\pi}| n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]-E_{s_t\sim \pi | n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]| &amp;\le  |E_{s_t\sim\widetilde{\pi}| n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]|+|E_{s_t\sim \pi | n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]| \longrightarrow 使用式(12)的结论\\
+&amp;\le 4\alpha \max_{s,a}|A_{\pi}(s,a)|
+\end{aligned}</span>
+又<span class="math">P(n_t =0) \ge(1-\alpha)^{t}</span>，故<span class="math">P(n_t&gt;0) \le 1-(1-\alpha)^t</span>
+
+于是有：
+
+<span class="math">\begin{aligned}
+|E_{s_t\sim\widetilde{\pi}}\left[\overline{A}\left(s_i\right)\right]-E_{s_t\sim \pi}\left[\overline{A}\left(s_i\right)\right]|&amp;=P(n_t&gt;0)|E_{s_t\sim\widetilde{\pi}| n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]-E_{s_t\sim \pi | n_t&gt;0}\left[\overline{A}\left(s_t\right)\right]|\\
+&amp; \le(1-(1-\alpha)^t) \cdot 4\alpha \max_{s,a}|A_{\pi}(s,a)|
+\end{aligned}</span>
+从而有：
+
+<span class="math">\begin{aligned}
+|\eta(\widetilde{\pi})-L_{\pi}(\widetilde{\pi})|&amp;=\sum_{t=0}^{\infty}\gamma^t|E_{\tau \sim \widetilde{\pi}}[\overline{A}(s_t)]-E_{\tau \sim \pi}[\overline{A}(s_t)]|\\
+&amp;\le \sum_{t=0}^{\infty}\gamma^t \cdot 4\epsilon\alpha(1-(1-\alpha)^t) \longrightarrow \epsilon=\max_s |A_{\pi}(s,a)| 而不是\max_{s}|E_{a \thicksim \widetilde{\pi}(a|s) }[A_{\pi}(s,a)]|\\
+&amp;=4\epsilon\alpha(\frac{1}{1-\gamma}-\frac{1}{1-\gamma(1-\alpha)})\\
+&amp;=\frac{4\alpha^2\gamma\epsilon}{(1-\gamma)(1-\gamma(1-\alpha))}\\
+&amp;\le\frac{4\alpha^2\gamma\epsilon}{(1-\gamma)^2} 
+\end{aligned}</span>
+证毕。
+
+</blockquote>
+
+由式（11）可知，可以保证在一定的误差范围内可以用<span class="math">L_{\pi}(\widetilde{\pi})</span>代替<span class="math">\eta(\widetilde{\pi})</span>。
+
+但混合策略，即式（12）在实际应用中用得很少，个人理解是超参数<span class="math">\alpha</span>很难设定，而<span class="math">\alpha</span>其实表征的是两个策略之间的距离，而策略其实就是概率分布，衡量两个概率分布的相似程度自然而然想到散度，于是使用总方差散度(the Total Variation divergence)。
+
+对于离散的取值，我们有：
+
+<span class="math">D_{TV}(p||q)=\frac{1}{2}\sum_{i}|p_i-q_i|\\
+D_{TV}^{max}(\pi,\widetilde{\pi})=\max_s(\pi(\cdot|s)||\widetilde{\pi}(\cdot|s)) \tag{15}</span>
+又有：
+
+<span class="math">[D_{TV}(p||q)]^2 \le D_{KL}(p||q)\\
+D_{KL}^{max}(\pi,\widetilde{\pi})=\max_{s} D_{KL}(\pi(\cdot|s)||\widetilde{\pi}(\cdot|s))</span>
+从而有：
+
+<span class="math">\eta(\widetilde{\pi}) \ge L_{\pi}(\widetilde{\pi})-CD_{KL}^{max}(\pi,\widetilde{\pi})\\
+\text{where C }=\frac{4\epsilon\gamma}{(1-\gamma)^2}</span>
+可以用KL散度控制<span class="math">\pi</span>和<span class="math">\widetilde{\pi}</span>之间的距离小于<span class="math">\alpha</span>时，就能够在误差确定的情况下使用<span class="math">L_{\pi}(\widetilde{\pi})</span>替代<span class="math">\eta(\widetilde{\pi})</span>，从而在优化<span class="math">L_{\pi}(\widetilde{\pi})</span>时，<span class="math">\eta(\widetilde{\pi})</span>也在优化。
+
+在保证回报函数单调不减的情况下，求取更新策略的算法：
+
+<blockquote>
+
+算法：保证预期回报<span class="math">\eta</span>不减的近似策略迭代算法
+
+输入：初始化策略<span class="math">\pi_0</span>
+
+For i=0,1,2,3,<span class="math">\cdots</span> until 收敛 do:
+
+ 计算优势函数<span class="math">A_{\pi_i}(s,a)</span>
+
+ 求解如下约束问题：
+
+ <span class="math">\pi_{i+1}=arg max_{\pi}(L_{\pi_{i}}(\pi)-\frac{4\epsilon\gamma}{(1-\gamma)^2}D_{KL}^{max}(\pi_i,\pi))</span>,
+
+ 其中<span class="math">\epsilon=\max_{s}|E_{a \thicksim \widetilde{\pi}(a|s) }[A_{\pi}(s,a)]</span>
+
+ <span class="math">L_{\pi_{i}}(\pi_i)=\eta(\pi_i)+\sum_{s}\rho_{\pi_i}(s)\sum_{a}\pi(a|s)A_{\pi_i}(s,a)</span>
+
+End for
+
+</blockquote>
+
+证明以上算法的有效性：
+
+<blockquote>
+
+设<span class="math">M_i(\pi)=L_{\pi_i}(\pi)-CD_{KL}^{max}(\pi_i,\pi)</span>
+
+则<span class="math">M_i(\pi_i)=L_{\pi_i}(\pi_i)=\eta(\pi_i) \longrightarrow D_{KL}^{max}(\pi_i,\pi_i)=0</span>
+
+取<span class="math">\pi_{i+1}=arg max_{\pi}(L_{\pi_i}(\pi)-C \cdot D_{KL}^{max}(\pi_i,\pi))</span>
+
+则<span class="math">\eta(\pi_{i+1}) \ge M_{i+1}(\pi_{i+1})</span>
+
+于是有 <span class="math">\eta(\pi_{i+1})-\eta(\pi_i) \ge M_i(\pi_{i+1}-M_i(\pi_i))</span>
+
+故改善<span class="math">M_i</span>也会改善<span class="math">\eta</span>
+
+证毕。
+
+</blockquote>
+
+h1(#六采取重要性采样q函数替代a函数对算法进一步近似). 六、采取重要性采样，Q函数替代A函数，对算法进一步近似
+
+参数化的策略是通过改变参数来优化目标函数，即实现<span class="math">\max_{\theta}(L_{\theta_{old}}(\theta)-C \cdot D_{KL}^{max}(\theta_{old},\theta))</span>，可以改写为：
+
+<span class="math">\max_\theta L_{\theta_{old}}(\theta)\\
+\text{subject to} D_{KL}^{max}(\theta_{old},\theta) \le \delta \tag{16}</span>
+但上式的约束太严格，要求状态空间的每一点都维持在KL散度在一定范围内，所以在实际应用中用平均散度来作为最大KL散度的近似，这样就可以使用采样的方法，即：
+
+<span class="math">\overline{D}_{KL}^{\rho}(\theta_1,\theta_2):=E_{s \sim \rho}[D_{KL}(\pi_{\theta_1(\cdot |s)}||\pi_{\theta_2(\cdot |s)})] \tag{17}</span>
+则有：
+
+<span class="math">\max_\theta \sum_s \rho_{\theta_{old}}(s)\sum_a\pi_\theta(a|s)A_{\theta_{old}}(s,a)\\
+\text{subject to } \overline{D}_{KL}^{\rho_{\theta_{old}}}(\theta_{old},\theta) \le \delta \tag{18}</span>
+式（18）中的<span class="math">\sum_s\rho_{\theta_{old}}(s)[\cdots]</span>可以根据其定义，使用<span class="math">\frac{1}{1-\gamma}E_{s \sim \rho_{\theta_{old}}}[\cdots]</span>代替（将<span class="math">\rho</span>定义中的<span class="math">\gamma</span>考虑为权重，要让权重为1，则必须先乘上<span class="math">1-\gamma</span>，然后再除以<span class="math">1-\gamma</span>，这样<span class="math">\sum_s\rho(s)=1</span>。
+
+<blockquote>
+
+解释：
+
+<span class="math">\begin{aligned}
+\sum_s\rho_{\theta_{old}}(s)[\cdots]&amp;=\sum_s\sum_t\gamma^tP(s_t|\pi_{\theta_{old}})[\cdots]\\
+&amp;=\sum_t\gamma^t\sum_sP(s_t|\pi_{\theta_{old}})[\cdots]\\
+&amp;\approx \frac{1}{1-\gamma} E_{s \sim \rho_{\theta_{old}}}[\cdots] \\
+\end{aligned}</span>
+</blockquote>
+
+又因为式（18）第二个<span class="math">\sum</span>的策略是按照新的策略，所以得引入重要性采样，用原策略采样得到的轨迹来训练
+
+即：
+
+<span class="math">\sum_s\pi_{\theta}(a|s)A_{\theta_{old}}(s,a)=E_{a \sim \pi_{\theta_{old}}}[\frac{\pi_{\theta}(a|s)}{\pi_{\theta_{old}}(a|s)}A_{\theta_{old}}(s,a)] \tag{19}</span>
+再一个优化是用状态&#45;动作价值函数Q(s,a)代替优势函数A(s,a)
+
+<blockquote>
+
+解释：
+
+<span class="math">\begin{aligned}
+\sum_a\pi_\theta(a|s)A_{\theta_{old}}(s,a)&amp;=\sum_a\pi_\theta(a|s)[Q_{\theta_{old}}(s)-V_{\theta_{old}}(s,a)]\\
+&amp;=\sum_a[\pi_\theta(a|s)Q_{\theta_{old}}(s,a)]-V_{\theta_{old}}(s)\sum_a\pi_\theta(a|s)\\
+&amp;=\sum_a[\pi_\theta(a|s)Q_{\theta_{old}}(s,a)]-V_{\theta_{old}}(s) \longrightarrow V_{\theta_{old}}(s)是常数
+\end{aligned}</span>
+</blockquote>
+
+原论中提到可以用Q替代A，但在代码实现中还是用A来实现的居多，应该是运用了类似Dueling DQN差不多的技巧，以加快训练速度。
+
+最终TRPO的目标转化为转化为：
+
+<span class="math">\max_s E_{s \sim \rho_{\theta_{old}},a \sim \pi_{\theta_{old}}}[\frac{\pi_{\theta}(a|s)}{\pi_{\theta_{old}}(a|s)}Q_{\theta_{old}}(s,a)]\\
+\text{subject to }E_{s \sim \rho_{\theta_{old}}}[D_{KL}(\pi_{\theta_{old}}(\cdot|s)||\pi_{\theta}(\cdot|s))] \le \delta
+\tag{20}</span>
+h1(#七对目标函数进行一阶逼近对约束函数进行二阶逼近). 七、对目标函数进行一阶逼近，对约束函数进行二阶逼近
+
+纯理论上的TRPO更新不是最容易使用的，所以实际的TRPO算法进行了一些近似操作以快速获得答案。
+
+1）对目标函数进行一阶逼近
+
+记<span class="math">L_{\theta_{old}}(\theta)=E_{s \sim \rho_{\theta_{old}},a \sim \pi_{\theta_{old}}}[\frac{\pi_{\theta}(a|s)}{\pi_{\theta_{old}}(a|s)}A_{\theta_{old}}(s,a)]</span>
+
+得到：
+
+<span class="math">\min_\theta -\nabla_\theta L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}} \cdot (\theta-\theta_{old}) \tag{21}</span>
+<blockquote>
+
+解释：
+
+函数f(x)在x=a处的一阶泰勒展开为 <span class="math">f(x)=f(a)+f^`(a)(x-a)</span>
+
+故对式（20）的第一个式子在<span class="math">\theta=\theta_{old}</span>处进行一阶泰勒展开，得到
+
+<span class="math">L_{\theta_{old}}(\theta)=L_{\theta_{old}}(\theta_{old})+\nabla_\theta L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}} \cdot (\theta-\theta_{old})</span>
+显然等号第一项为0，最大化一个数等价于最小化它的相反数，且在机器学习中一般习惯于最小化目标函数
+
+故
+
+<span class="math">\max_s E_{s \sim \rho_{\theta_{old}},a \sim \pi_{\theta_{old}}}[\frac{\pi_{\theta}(a|s)}{\pi_{\theta_{old}}(a|s)}A_{\theta_{old}}(s,a)]\Leftrightarrow \min_\theta -(\nabla_\theta L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}} \cdot (\theta-\theta_{old}))</span>
+</blockquote>
+
+2）对约束函数进行二阶逼近
+
+得到：
+
+<span class="math">\frac{1}{2}(\theta-\theta_{old})^TF(\theta_{old})(\theta-\theta_{old}) \le \delta\\
+其中F是费舍尔信息矩阵 \tag{22}</span>
+<blockquote>
+
+解释：
+
+根据KL散度的定义得：
+
+<span class="math">\begin{aligned}
+D_{KL}(\pi_{\theta_{old}}(\cdot|s)||\pi_{\theta}(\cdot|s))&amp;=\int \pi_{\theta_{old}}(\cdot|s)\log\frac{\pi_{\theta_{old}}(\cdot|s)}{\pi_{\theta}(\cdot|s)}\,dx\\
+&amp;=\int \pi_{\theta_{old}}(\cdot|s))\log\pi_{\theta_{old}}(\cdot|s))\,dx-\int \pi_{\theta_{old}}(\cdot|s))\log\pi_{\theta}(\cdot|s))\\
+&amp;=E_{x \sim \pi_{\theta_{old}}}\log \pi_{\theta_{old}}-E_{x \sim \pi_{\theta_{old}}}\log \pi_{\theta}
+\end{aligned}</span>
+对<span class="math">D_{KL}</span>进行一阶求导，即：
+
+<span class="math">\begin{aligned}
+\nabla_\theta D_{KL}(\pi_{\theta_{old}}(\cdot|s)||\pi_{\theta}(\cdot|s))&amp;=-\int \pi_{\theta_{old}}(x|s))\nabla_{\theta}\log\pi_{\theta}(x|s))\,dx\\
+&amp;=-\int \pi_{\theta_{old}}(x|s) \cdot\frac{\nabla_{\theta}\pi_{\theta}(x|s)}{\pi_{\theta(x|s)}}\,dx \longrightarrow代入\theta=\theta_{old}\\
+&amp;=-\int\nabla_{\theta}\pi_{\theta_{old}}(x|s)\,dx\\
+&amp;=-\nabla \int \pi_{\theta_{old}}(x|s)\,dx\\
+&amp;=\nabla 常数\\
+&amp;=0
+\end{aligned}</span>
+对<span class="math">D_{KL}</span>进行二阶求导
+
+<span class="math">\begin{aligned}
+\nabla_\theta^2 D_{KL}(\pi_{\theta_{old}}(\cdot|s)||\pi_{\theta}(\cdot|s))|_{\theta=\theta_{old}}&amp;=-\int \pi_{\theta_{old}}(x|s))\nabla_{\theta}^2\log\pi_{\theta}(x|s))\,dx|_{\theta=\theta_{old}} \longrightarrow 记H=\nabla_{\theta}^2\log\pi_{\theta}(x|s))|_{\theta=\theta_{old}}\\
+&amp;=-\int \pi_{\theta_{old}}(x|s)H_{\log \pi_{\theta}}\,dx|_{\theta=\theta_{old}}\\
+&amp;=-E_{\pi_{\theta_{old}}}[H_{\log \pi_{\theta_{old}}}]\\
+&amp;=F \longrightarrow 费舍尔信息矩阵
+\end{aligned}</span>
+注：
+
+*两个重要结论*
+*结论1*：Fisher矩阵F是Hessian矩阵H的负期望
+
+<span class="math">F=-E_{p(x|\theta)}[\nabla_{\theta}\log p(x|\theta)\nabla \log p(x|\theta)^T]=-E_{p(x|\theta)}[H_{\log p(x|\theta)}]</span>
+当黑塞矩阵中的被微分的函数是对数函数时，其与费舍尔信息矩阵就相差一个负号
+
+*结论2*：Fisher矩阵F是KL散度的Hessian矩阵H
+
+即对<span class="math">D_{KL}</span>的二阶求导结果，即：
+
+<span class="math">\begin{aligned}
+KL[p_\theta||p_{\theta+d}] &amp;\approx KL[p_\theta||p_{\theta+d}]+(\nabla_{\theta'}KL[p_\theta||p_{\theta'}]|_{\theta'=\theta})^Td+\frac{1}{2}d^TFd\\
+&amp;=KL[p_\theta||p_{\theta+d}]-E_{p(x|\theta)}[\nabla_\theta\log p(x|\theta)]^Td+\frac{1}{2}d^TFd\\
+&amp;=\frac{1}{2}d^TFd
+\end{aligned}</span>
+记<span class="math">m(\theta)=E_{s \sim \rho_{\theta_{old}}}[D_{KL}(\pi_{\theta_{old}}(\cdot|s)||\pi_{\theta}(\cdot|s))] </span>，则<span class="math">m(\theta)在\theta=\theta_{old}</span>处的二阶泰勒展开为：
+
+<span class="math">\begin{aligned}
+m(\theta)&amp; \approx m(\theta_{old})+\nabla_{\theta}m(\theta)|_{\theta=\theta_{old}}(\theta-\theta_{old})
++\frac{1}{2}(\theta-\theta_{old})^T\nabla_{\theta}^2m(\theta)|_{\theta=\theta_{old}}(\theta-\theta_{old}) \longrightarrow 由前面的推导\\
+&amp;=-\frac{1}{2}(\theta-\theta_{old})^T E_{s \sim\rho_{\theta_{old}}}[H_{\log \pi_{\theta_{old}}}](\theta-\theta_{old})\\
+&amp;=\frac{1}{2}(\theta-\theta_{old})^T E_{s \sim\rho_{\theta_{old}}}[F_{\pi_{\theta_{old}}}](\theta-\theta_{old})
+\end{aligned}</span>
+</blockquote>
+
+h1(#八利用共轭梯度法求解最优更新量). 八、利用共轭梯度法求解最优更新量
+
+对式（21）和（22）构造拉格朗日函数，即
+
+<span class="math">\mathcal{L}(\theta,\lambda)=-(\nabla_\theta L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}} \cdot (\theta-\theta_{old}))+\lambda(\frac{1}{2}(\theta-\theta_{old})^TF(\theta_{old})(\theta-\theta_{old}) - \delta) \tag{23}</span>
+利用KKT条件：
+
+<span class="math">\frac{\partial\mathcal{L}(\theta,\lambda)}{\partial \theta}=-\nabla_\theta L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}}+\lambda F(\theta_{old})(\theta-\theta_{old})=0\\
+\lambda \ge 0\\
+\lambda (\frac{1}{2}(\theta-\theta_{old})^TF(\theta_{old})(\theta-\theta_{old})-\delta)=0\\
+\frac{1}{2}(\theta-\theta_{old})^TF(\theta_{old})(\theta-\theta_{old})-\delta \le 0
+
+\tag{24}</span>
+令<span class="math">d=\lambda(\theta-\theta_{old})</span>，可以看出<span class="math">d与\theta-\theta_{old}</span>同向，则d为最优更新量的搜索方向，即满足：
+
+<span class="math">F(\theta_{old})d=\nabla_{\theta}L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}}\\
+或d=F^{-1}(\theta_{old})\nabla_{\theta}L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}}  \tag{25}</span>
+<span class="math">\theta=\theta_{old}+\sqrt{\left.\frac{2\delta}{g^TF^{-1}g} \right.}F^{-1}g,其中g=-\nabla_\theta L_{\theta_{old}}(\theta) \tag{26}</span>
+
+
+h2(#1计算更新步长). 1)计算更新步长：
+
+设步长为<span class="math">\beta</span>，则：
+
+<span class="math">\delta=\frac{1}{2}(\beta d^*)^TF(\theta_{old})(\beta d^*) \Rightarrow\beta=\sqrt{\left.\frac{2\delta}{d^{*^T}Fd^*}  \right.}，\\
+其中d^*=F^{-1}g,这里d^*=-d,g为式（26）中的g \tag{27}</span>
+<span class="math">\theta_{new}=\theta_{old}+\beta \cdot d^* \tag{28}</span>
+h2(#2计算搜索方向). 2)计算搜索方向
+
+式（25）是个线性方程组，如果直接求逆，算法复杂度很高，达到<span class="math">O(n^3)</span>，其中n是矩阵大小，所以采用共轭梯度的方法来求解，即将求解线性方程组的问题转化为求解与之等价的二次函数极小值问题，具体如下：
+
+<blockquote>
+
+首先构造目标函数：
+
+<span class="math">f(x)=\frac{1}{2}x^TAx+b^Tx,其中A=A^T为正定矩阵，其极小值点为Ax=b的解\\
+其中b^T=-\nabla_{\theta}L_{\theta_{old}}(\theta)|_{\theta=\theta_{old}}=g \longrightarrow 式(26)这种的g，和具体算法过程中的g没有关系\\
+A=-E_{p(x|\theta_{old})}[\nabla_{\theta}\log p(x|\theta)\nabla \log p(x|\theta)^T]=-E_{p(x|\theta_{old})}[\nabla_\theta^2 D_{KL}(p(x|\theta_{old})||p(x|\theta))]=H_{KL_[{p(x|\theta_{old})||p(x|\theta])}}=F</span>
+具体算法过程：
+
+第一步：给定初始迭代点<span class="math">x^{(0)}</span>以及停止条件（阈值<span class="math">\epsilon或最大迭代次数n</span>）
+
+第二步：计算<span class="math">g^{(0)}=\nabla f(x^{(0)})=Ax^{(0)}+b</span>，如果<span class="math">g^{(0)}=0</span>则停止迭代，否则<span class="math">d^{(0)}=-g^{(0)}</span>
+
+第三步：for k=0 to n&#45;1 do:
+
+ a)  <span class="math">\alpha_k=-\frac{(g^{(k)})^Td^{k}}{(d^k)^TAd^{k}}</span>
+
+ b) <span class="math">x^{(k+1)}=x^{(k)}+\alpha_kd^{(k)}</span>
+
+ c) <span class="math">g^{(k+1)}=\nabla f(x^{(k+1)})=Ax^{(k+1)}+b</span>，如果<span class="math">g^{(k+1)}=0</span>，停止迭代
+
+ d) <span class="math">\beta_k=\frac{(g^{(k+1)})^TAd^{k}}{(d^k)^TAd^{k}}</span>
+
+ e) <span class="math">d^{(k+1)}=-g^{(k+1)}+\beta_kd^{(k)}</span>
+
+End for
+
+输出<span class="math">x^{n+1}</span>
+
+
+
+此外：
+
+a)、d)都需要计算<span class="math">Ad^k</span>，需要计算和存储黑塞矩阵A，为了避免大矩阵出现，只计算<span class="math">Ad^k</span>向量：
+
+<span class="math">H\mathcal{v}=\nabla_{\theta}\left(\left(\nabla_\theta(D_{KL}^{\mathcal{v}^{\pi_{\theta_{k}}}}(\pi_{\theta_{k}},\pi_{\theta'})) \right)^T \right)\mathcal{v}=\nabla_{\theta}\left(\left(\nabla_\theta(D_{KL}^{\mathcal{v}^{\pi_{\theta_{k}}}}(\pi_{\theta_{k}},\pi_{\theta'})) \right)^T \mathcal{v}\right)</span>
+即现用一阶梯度和向量<span class="math">\mathcal{v}</span>点乘后再计算二阶梯度
+
+</blockquote>
+
+h1(#九线性搜索). 九、线性搜索
+
+由前所述，TRPO对目标函数进行了一阶近似，对约束条件进行了二阶近似，且将最大散度限制放宽到了平均散度限制，所以根据前一节介绍的算法得到的<span class="math">\pi_{\theta_{new}}</span>的平均回报未必高于<span class="math">\pi_{\theta_{old}}</span>的平均回报，或者KL散度可能没有达到限制条件。所以TRPO在每次迭代的最后进行一次线性搜索，以确保找到满足条件，即找到一个最小的非负整数i，使得：
+
+<span class="math">\theta_{k+1}=\theta_k+\alpha^i\sqrt{\left. \frac{2\delta}{x^TFx}\right.}x</span>
+满足KL散度限制，且策略回报有提升，其中<span class="math">\alpha \in (0,1)</span>是一个决定线性搜索长度的超参数，而i一般按顺序取1,2,3,......直到<span class="math">\theta_{k+1}</span>满足条件。
+
+h1(#十trpo算法流程). 十、TRPO算法流程
+
+初始化策略网络参数<span class="math">\theta</span>和价值网络参数<span class="math">\omega</span>
+
+for 序列 e=1 <span class="math">\rightarrow</span> E do:
+
+ 用当前策略<span class="math">\pi_{\theta_k}</span>采样轨迹<span class="math">\left\{s_1,a_1,r_1,s_2,a_2,r_2,\cdots \right\}</span>
+
+ 根据收集到的数据和价值网络估计每个状态动作对的优势函数<span class="math">A(s_t,a_t)</span>
+
+ 计算策略目标函数的梯度g
+
+ 用共轭梯度法计算<span class="math">x=-F^{-1}g</span>
+
+ 用线性搜索找到一个i，并更新策略网络参数<span class="math">\theta_{k+1}=\theta_k+\alpha^i\sqrt{\left. \frac{2\delta}{x^TFx}\right.}x,其中i \in \left\{1,2,\cdots ,K\right\}</span>为提升策略并满足KL距离限制的最小整数
+
+ 更新价值网络参数（与Actor&#45;Critic中的更新方法相同）
+
+end for
+
+h1(#参考资料). 参考资料
+
+John Schulman Trust Region Policy Optimization
+
+张伟楠 沈键 俞勇 《动手学强化学习》 人民邮电出版社
+
+邹伟 鬲玲 刘昱杓 《强化学习》 清华大学出版社
+
+作者：Dreammaker 链接："$":https://zhuanlan.zhihu.com/p/605886935 来源：知乎
+
+机智的王小鹏 链接："$":https://space.bilibili.com/169602174
+
