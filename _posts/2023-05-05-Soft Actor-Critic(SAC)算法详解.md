@@ -1,10 +1,12 @@
 [toc]
 
-# 一、基本思想
+# 基本思想
 
-让策略尽可能随机，Agent可以更充分地探索状态空间S，避免策略早早落入局部最优点，并且可以探索到多个可行的方案完成指定任务，提高抗干扰能力。
+最大熵强化学习的思想除了要最大化累积奖励，还要使得策略更加随机。而熵正则化增加了强化学习算法的探索程度，$\alpha$越大，探索性就越强，能让策略尽可能随机，Agent可以更充分地探索状态空间S，避免策略早早落入局部最优点，并且可以探索到多个可行的方案完成指定任务，提高抗干扰能力。
 
-# 二、最大熵学习（MERL）
+SAC算法优势：基于能量的模型在面对多模态（multimodal）的值函数（ Q(s,a) ）时，具有更强的策略表达能力，而一般的高斯分布只能将决策集中在 Q 值更高的部分，忽略其他次优解。
+
+# 最大熵学习（MERL）
 
 熵
 $$
@@ -20,7 +22,7 @@ $$
 $$
 思想来源于最大熵方法，好处：模型在匹配观察到的信息时，对未知的假设最少
 
-# 三、soft value function & Energy based policy
+# soft value function & Energy based policy
 
 ## 原本的RL值函数
 
@@ -227,34 +229,73 @@ $$
   $$
   a_t=f_\phi(\varepsilon_t;s_t)=f_\phi^\mu(s_t)+\varepsilon_t\odot f_\phi^\sigma(s_t)
   $$
-  此外，最后包含Z的那一项不受$\phi$影响，可将其忽略。
+  即先从一个单位高斯分布$\mathcal{N}$采样，再把采样值乘以标准差后加上均值。这样就可以认为是从策略高斯分布采样，并且这个采样动作的过程对于策略函数来说是可导的。
 
+  此外，最后包含Z的那一项不受$\phi$影响，可将其忽略。
+  
   最终：
   $$
-  J_{\pi}(\phi)=E_{s_t\sim D,\varepsilon\sim N}\left[\alpha\log\pi_\phi(f_\phi(\varepsilon_t;s_t)|s_t)-Q_\theta(s_t,f_\phi(\varepsilon_t;s_t))\right] \tag{17}
+  J_{\pi}(\phi)=E_{s_t\sim D,\varepsilon_t\sim \mathcal{N}}\left[\alpha\log\pi_\phi(f_\phi(\varepsilon_t;s_t)|s_t)-Q_\theta(s_t,f_\phi(\varepsilon_t;s_t))\right] \tag{17}
   $$
+
+  其中$\mathcal{N}$是单位高斯分布
 
   > 在初版的SAC中作者表示同时维护两个值函数可以使训练更稳定，不过在第二版中，作者引入自然调整温度系数$\alpha$，使得SAC更稳定，于是就只保留了Q函数。
 
   # tricks in SAC
 
   锦上添花的trick: double Q network,target work
+  
+  ## Automating Entropy Adjustment for MERL
+  
+  前文提到过，温度系数 $\alpha$ 作为一个超参数，可以控制MERL对熵的重视程度。但是不同的强化学习任务，甚至同一任务训练到不同时期，都各自有自己适合的  $\alpha$ ，而且这个超参数对性能的影响明显，还好，这个参数可以让SAC自己调节。实现在最优动作不确定的某个状态下，熵的取值应该大一点；而在某个最优动作比较确定的状态下，熵的取值可以小一点。
 
-  **Automating Entropy Adjustment for MERL**
-
-  前文提到过，温度系数 $\alpha$ 作为一个超参数，可以控制MERL对熵的重视程度。但是不同的强化学习任务，甚至同一任务训练到不同时期，都各自有自己适合的  $\alpha$ ，而且这个超参数对性能的影响明显，还好，这个参数可以让SAC自己调节。作者将其构造为一个带约束的优化问题：最大化期望收益的同时，保持策略的熵大于一个阈值。
+  作者将其构造为一个带约束的优化问题：最大化期望收益的同时，保持策略的熵大于一个阈值。为了自动调整熵正则化项，SAC将强化学习的目标改为一个带约束的优化问题：
   $$
-  \max_{\pi_0,\dots,\pi_T} E\left[\sum_{t=0}^\infty r(s_t,a_t) \right],s.t. \forall t,\mathcal{H}(\pi_t) \ge\mathcal{H}_0 \tag{18}
+  \max_{\pi} E_\pi\left[\sum_{t=0}^\infty r(s_t,a_t) \right],s.t. E_{(s_t,a_t)\sim \rho_\pi}[-\log{\pi_t(a_t|s_t)}] \ge\mathcal{H}_0 \tag{18}
   $$
-  其中，$\mathcal{H}_0$是预先定义好的最小策略熵的阈值。
-
-  最终需要优化的损失函数：
+  其中，$\mathcal{H}_0$是预先定义好的最小策略熵的阈值。上式即最大化期望回报，同时约束熵的均值大于$\mathcal{H}_0$。
+  
+  最终得到关于$\alpha$的优化的损失函数：
   $$
-  J(\alpha)=E_{a_t\sim\pi_t}[-\alpha\log\pi_t(a_t|\pi_t)-\alpha\mathcal{H}_0] \tag{19}
+  J(\alpha)=E_{a_t\sim\pi_t}[-\alpha\log\pi_t(a_t|\pi_t)-\alpha \mathcal{H}_0] \tag{19}
   $$
-
+  
+  即当策略的熵低于目标值$\mathcal{H}_0$时，训练目标$L(\alpha)$会使$\alpha$的值增大，进而在上述最小化损失函数$L_\pi(\theta)$的过程中增加了策略熵对应项的重要性；而当策略的熵高于目标值$\mathcal{H}_0$时，训练目标$L(\alpha)$会使$\alpha$的值减小，进而使得策略训练时更专注于价值提升。
+  
+  ## squashed Gaussian Trick
+  
+  action从正态分布中得到，则动作的值$u\in(-\infty,+\infty)$。如果动作值范围有界限，比如$(-1,1)$，就需要对抽样得到的u进行转换，$\mu(u|s)$是对应的概率密度,用tanh映射到$a\in (-1,1)$，随机变量就换元了，计算$\log(\pi_\psi(a_t|s_t))$也要有相应的变换。
+  $$
+  a=\tan{u}\\
+  \tan'{u}=1-\tan^2{u}\\
+  $$
+  有：
+  $$
+  \pi(a|s)=\mu(u|s)\bigg|\det{(\frac{da}{du})}\bigg|^{-1} \Rightarrow\log{\pi(a|s)}=\log{\mu(a|s)}-\sum_{i=1}^D \log{(1-\tanh^2(u_i))} \tag{20}
+  $$
+  其中D是U的维度，det是求行列式。
+  
+  但在实际的运算中，使用的计算式为：$2*(\log{2}-\pi_a-softplus(-2\pi_a))$，是对Tanh squashing correction公式更加数值稳定的替代。
+  
+  > 证明：
+  > $$
+  > \begin{aligned}
+  > \log{(1-\tanh^2{u})}&=\log{sech^2(u)}\\
+  > &=2\log{sech(u)}\\
+  > &=2\log{(\frac{2}{\exp{(u_i)}+\exp{(-u_i)}})}\\
+  > &=2\left(\log{2}-\log{(\exp{(u_i)}+\exp{(-u_i)})} \right)\\
+  > &=2\left(\log{2}-\log{(\exp{u_i}\cdot(1+\exp{(-2u_i)}))} \right)\\
+  > &=2(\log{2}-u_i-\log{(1+\exp{(-2u_i)})})\\
+  > &=2(\log{2}-u_i-softplus(-2u_i))
+  > \end{aligned}
+  > $$
+  > 
+  
+  
+  
   # 算法流程
-
+  
   > 用随机的网络参数$\omega_1、\omega_2和\theta$分别初始化Critic网络$Q_{\omega_1}(s,a)和Q_{\omega_2}(s,a)$和Actor网络$\pi_\theta(s)$
   >
   > 复制相同的参数$\omega_1^-\leftarrow \omega_1、\omega_2^-\leftarrow \omega_2和\theta^- \leftarrow\theta$，分别初始化目标网络$Q_{\omega_1^-}(s,a)、Q_{\omega_2^-}(s,a)$和$\pi_{\theta^-}(s)$
@@ -303,3 +344,5 @@ $$
 #[Feliks](https://www.zhihu.com/people/zhu-jin-59-34-82) SAC(Soft Actor-Critic)阅读笔记 https://zhuanlan.zhihu.com/p/85003758
 
 张伟楠 沈键 俞勇 《动手学强化学习》 人民邮电出版社
+
+Pytorch深度强化学习4. SAC中的Squashed Gaussian Trick - 0xAA的文章 - 知乎 https://zhuanlan.zhihu.com/p/138021330
