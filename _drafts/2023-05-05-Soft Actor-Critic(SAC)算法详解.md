@@ -38,7 +38,7 @@ $$
 $$
 
 $$
-\text{soft V function: } V_{soft}^\pi (s)=E_{(s_t,a_t) \sim\rho_\pi} \left[ \sum_{t=0}^{\infty}(\gamma^t\cdot r(s_t,a_t)+\alpha H(\pi(\cdot|s_t)))|s_0=s \right] \tag{5}
+\text{soft V function: } V_{soft}^\pi (s)=E_{(s_t,a_t) \sim\rho_\pi} \left[ \sum_{t=0}^{\infty}\gamma^t\cdot( r(s_t,a_t)+\alpha H(\pi(\cdot|s_t)))|s_0=s \right] \tag{5}
 $$
 
 ## soft Q function和soft V function的关系：
@@ -53,7 +53,7 @@ $$
 
 $$
 \begin{aligned}
-V_{soft}^\pi (s)&=E_{(s_t,a_t) \sim\rho_\pi} \left[ \sum_{t=0}^{\infty}(\gamma^t\cdot r(s_t,a_t)+\alpha H(\pi(\cdot|s_t)))|s_0=s \right]\\
+V_{soft}^\pi (s)&=E_{(s_t,a_t) \sim\rho_\pi} \left[ \sum_{t=0}^{\infty}\gamma^t\cdot(r(s_t,a_t)+\alpha H(\pi(\cdot|s_t)))|s_0=s \right]\\
 &=E_{(s_t,a_t) \sim\rho_\pi} \left[ \sum_{t=0}^{\infty}\gamma^t r(s_t,a_t)+\alpha\sum_{t=1}^{\infty}\gamma^t H(\pi(\cdot|s_t)+\alpha H(\pi(\cdot | s_0)))|s_0=s,a_0=a \right]\\
 &=E_{a_t \sim\pi} \left[Q_{soft}^{\pi}(s_t,a_t)+\alpha\cdot H(\pi(\cdot|s_0))|s_0=s \right]\\
 \end{aligned} \tag{7}
@@ -99,7 +99,7 @@ $$
 > $$
 > ​	当$\tau \rightarrow 0$时，误差也趋近于0
 
-式（3）可以用策略梯度算法暴力求解，但通过将soft value function和Energy based policy联系起来，可以推出值迭代算法，根据式（3）整理出目标函数，并加入折扣银子：
+式（3）可以用策略梯度算法暴力求解，但通过将soft value function和Energy based policy联系起来，可以推出值迭代算法，根据式（3）整理出目标函数，并加入折扣因子：
 $$
 J(\pi)=\sum_{t=0}^T \gamma^t E_{(s_t,a_t)\sim \rho_\pi}\left[r(s_t,a_t)+\alpha\cdot H(\pi(\cdot|s_t)) \right] \tag{12}
 $$
@@ -139,7 +139,7 @@ $$
 >
 > ​		$Q(s_t,a_t)=r(s_t,a_t)+\gamma E_{p(s_{t+1}|s_t,a_t)}[V(s_{t+1})] \longrightarrow 不是人为控制得，所以用E，而不是max$
 >
-> ​		$V(s_t)=\alpha \log\int\exp(\frac{1}{\alpha}Q(s_t,a_t))da_t $
+> ​		其中，$V(s_t)=\alpha \log\int\exp(\frac{1}{\alpha}Q(s_t,a_t))da_t $
 
 
 
